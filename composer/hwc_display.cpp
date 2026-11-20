@@ -1121,7 +1121,7 @@ HWC2::Error HWCDisplay::GetDisplayAttribute(hwc2_config_t config, HwcAttribute a
       *out_value = INT32(variable_config.y_dpi * 1000.0f);
       break;
     case HwcAttribute::CONFIG_GROUP:
-      *out_value = GetDisplayConfigGroup(variable_config);
+      *out_value = (type_ == kPluggable) ? INT32(config) : GetDisplayConfigGroup(variable_config);
       break;
     default:
       DLOGW("Spurious attribute type = %s", composer_V2_4::toString(attribute).c_str());
@@ -2587,11 +2587,26 @@ void HWCDisplay::UpdateActiveConfig() {
     return;
   }
 
+  uint32_t current_config = 0;
+  display_intf_->GetActiveConfig(&current_config);
+
   DisplayError error = display_intf_->SetActiveConfig(pending_config_index_);
   if (error != kErrorNone) {
     DLOGI("Failed to set %d config", INT(pending_config_index_));
   } else {
     SetActiveConfigIndex(pending_config_index_);
+
+    DisplayConfigVariableInfo info = {};
+    GetDisplayAttributesForConfig(INT(pending_config_index_), &info);
+
+    DisplayConfigVariableInfo current_config_info = {};
+    GetDisplayAttributesForConfig(INT(current_config), &current_config_info);
+    if (info.x_pixels != current_config_info.x_pixels ||
+        info.y_pixels != current_config_info.y_pixels) {
+      if (SetFrameBufferResolution(info.x_pixels, info.y_pixels)) {
+        DLOGE("Failed to set framebuffer resolution %ux%u", info.x_pixels, info.y_pixels);
+      }
+    }
   }
 
   // Reset pending config.
@@ -2785,6 +2800,10 @@ bool HWCDisplay::IsSameGroup(hwc2_config_t config_id1, hwc2_config_t config_id2)
     return false;
   }
 
+  if (type_ == kPluggable) {
+    return (config_id1 == config_id2);
+  }
+
   const DisplayConfigGroupInfo &config_group1 = variable_config1->second;
   const DisplayConfigGroupInfo &config_group2 = variable_config2->second;
 
@@ -2820,6 +2839,21 @@ HWC2::Error HWCDisplay::SubmitDisplayConfig(hwc2_config_t config) {
   validated_ = false;
   SetActiveConfigIndex(config);
   DLOGI("Active configuration changed to: %d", config);
+
+  // Cache refresh rate set by client.
+  DisplayConfigVariableInfo info = {};
+  GetDisplayAttributesForConfig(INT(config), &info);
+  active_refresh_rate_ = info.fps;
+
+  DisplayConfigVariableInfo current_config_info = {};
+  GetDisplayAttributesForConfig(INT(current_config), &current_config_info);
+  // Set fb config if new resolution differs
+  if (info.x_pixels != current_config_info.x_pixels ||
+      info.y_pixels != current_config_info.y_pixels) {
+    if (SetFrameBufferConfig(info.x_pixels, info.y_pixels)) {
+      return HWC2::Error::BadParameter;
+    }
+  }
 
   return HWC2::Error::None;
 }

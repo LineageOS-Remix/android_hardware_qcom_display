@@ -26,8 +26,20 @@ cc_library_shared {
         "-Wno-unused-parameter",
         "-Wno-unused-variable",
         "-Wno-implicit-fallthrough",
-    ] + select(soong_config_variable("qtidisplay", "target_no_raw10_custom_format"), {
+    ] + select(soong_config_variable("qtidisplay", "target_no_camera_custom_format"), {
+        "true": ["-DNO_CAMERA_CUSTOM_FORMAT"],
+        default: [],
+    }) + select(soong_config_variable("qtidisplay", "target_no_raw10_custom_format"), {
         "true": ["-DNO_RAW10_CUSTOM_FORMAT"],
+        default: [],
+    }) + select(soong_config_variable("qtidisplay", "target_uses_aligned_ycbcr_height"), {
+        "true": ["-DUSE_ALIGNED_YCBCR_HEIGHT"],
+        default: [],
+    }) + select(soong_config_variable("qtidisplay", "target_uses_aligned_ycrcb_height"), {
+        "true": ["-DUSE_ALIGNED_YCRCB_HEIGHT"],
+        default: [],
+    }) + select(soong_config_variable("qtidisplay", "target_uses_legacy_buffer_alignment"), {
+        "true": ["-DUSE_LEGACY_BUFFER_ALIGNMENT"],
         default: [],
     }) + select(soong_config_variable("qtidisplay", "target_uses_ycrcb_camera_preview"), {
         "true": ["-DUSE_YCRCB_CAMERA_PREVIEW"],
@@ -80,7 +92,10 @@ cc_library_shared {
         "-D__QTI_DISPLAY_GRALLOC__",
         "-Wno-sign-conversion",
         "-Wno-unused-parameter",
-    ],
+    ] + select(soong_config_variable("qtidisplay", "target_uses_legacy_buffer_alignment"), {
+        "true": ["-DUSE_LEGACY_BUFFER_ALIGNMENT"],
+        default: [],
+    }),
     export_cflags: select(soong_config_variable("qtidisplay", "gralloc_handle_has_reserved_size"), {
         "true": ["-DGRALLOC_HANDLE_HAS_RESERVED_SIZE"],
         default: [],

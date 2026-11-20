@@ -62,7 +62,11 @@
  */
 
 #ifndef QMAA
+#ifdef USE_LEGACY_BUFFER_ALIGNMENT
+#include <media/msm_media_info_legacy.h>
+#else
 #include <media/msm_media_info.h>
+#endif
 #endif
 
 #include <drm/drm_fourcc.h>
@@ -187,7 +191,8 @@ bool IsCompressedRGBFormat(int format) {
   return false;
 }
 
-bool IsCameraCustomFormat(int format) {
+bool IsCameraCustomFormat([[maybe_unused]] int format) {
+#ifndef NO_CAMERA_CUSTOM_FORMAT
   switch (format) {
     case HAL_PIXEL_FORMAT_NV21_ZSL:
       if (CameraInfo::GetInstance() &&
@@ -211,6 +216,7 @@ bool IsCameraCustomFormat(int format) {
     default:
       break;
   }
+#endif
 
   return false;
 }
@@ -1127,11 +1133,18 @@ void GetAlignedWidthAndHeight(const BufferInfo &info, unsigned int *alignedw,
   // Below should be only YUV family
   switch (format) {
     case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+#ifdef USE_ALIGNED_YCRCB_HEIGHT
+      aligned_h = ALIGN(height, 32);
+      [[fallthrough]];
+#endif
     case HAL_PIXEL_FORMAT_YCbCr_420_SP:
       if (AdrenoMemInfo::GetInstance() == nullptr) {
         return;
       }
       alignment = AdrenoMemInfo::GetInstance()->GetGpuPixelAlignment();
+#ifdef USE_ALIGNED_YCBCR_HEIGHT
+      aligned_h = ALIGN(height, 32);
+#endif
       aligned_w = ALIGN(width, alignment);
       break;
     case HAL_PIXEL_FORMAT_YCrCb_420_SP_ADRENO:
@@ -1417,7 +1430,11 @@ int GetImplDefinedFormat(uint64_t usage, int format) {
   if (format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED ||
       format == HAL_PIXEL_FORMAT_YCbCr_420_888) {
     if ((usage & GRALLOC_USAGE_PRIVATE_ALLOC_UBWC || usage & GRALLOC_USAGE_PRIVATE_ALLOC_UBWC_PI)
-        && format != HAL_PIXEL_FORMAT_YCbCr_420_888) {
+        && format != HAL_PIXEL_FORMAT_YCbCr_420_888
+#ifdef NO_CAMERA_CUSTOM_FORMAT
+        && !((usage & BufferUsage::CAMERA_OUTPUT) && !(usage & GRALLOC_USAGE_PRIVATE_10BIT))
+#endif
+        ) {
       gr_format = HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC;
 #ifdef USE_TP10_UBWC_FOR_10BIT
       if (usage & GRALLOC_USAGE_PRIVATE_10BIT) {
