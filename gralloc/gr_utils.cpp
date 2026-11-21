@@ -824,9 +824,10 @@ bool IsUBwcEnabled(int format, uint64_t usage) {
 
   // Allow UBWC, if an OpenGL client sets UBWC usage flag and GPU plus MDP
   // support the format. OR if a non-OpenGL client like Rotator, sets UBWC
-  // usage flag and MDP supports the format.
+  // usage flag and MDP supports the format. Also honour 10-bit usage for UBWC.
   if (((usage & GRALLOC_USAGE_PRIVATE_ALLOC_UBWC) ||
        (usage & GRALLOC_USAGE_PRIVATE_ALLOC_UBWC_PI) ||
+       (usage & GRALLOC_USAGE_PRIVATE_10BIT) ||
        (usage & BufferUsage::COMPOSER_CLIENT_TARGET))
         && IsUBwcSupported(format)) {
     bool enable = true;
